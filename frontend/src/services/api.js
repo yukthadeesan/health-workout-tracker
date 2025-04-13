@@ -1,3 +1,4 @@
+// src/services/api.js
 import axios from 'axios';
 
 // Create an axios instance with default config
@@ -22,12 +23,36 @@ API.interceptors.request.use(
     }
 );
 
+// Add a response interceptor to handle common errors
+API.interceptors.response.use(
+    (response) => {
+        return response;
+    },
+    (error) => {
+        // Handle session expiration or unauthorized access
+        if (error.response && error.response.status === 401) {
+            // Clear local storage and redirect to login
+            localStorage.removeItem('token');
+            localStorage.removeItem('username');
+            localStorage.removeItem('userId');
+
+            // If we're not already on the auth page, redirect
+            if (window.location.pathname !== '/') {
+                window.location.href = '/';
+            }
+        }
+        return Promise.reject(error);
+    }
+);
+
 // Auth services
 export const authService = {
     login: (credentials) => API.post('/auth/login', credentials),
     register: (userData) => API.post('/auth/register', userData),
     logout: () => {
         localStorage.removeItem('token');
+        localStorage.removeItem('username');
+        localStorage.removeItem('userId');
     }
 };
 

@@ -38,5 +38,11 @@ public class User {
     public Long getId() {
         return this.id;
     }
+    public String getPassword() {
+        return this.password;
+    }
+    public void setPassword(String password) {
+        this.password = password;
+    }
 
 }

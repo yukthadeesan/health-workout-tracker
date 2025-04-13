@@ -1,5 +1,7 @@
-// src/pages/AuthPage.jsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
+import '../styles/AuthPage.css'; // Import the CSS file
 
 const AuthPage = () => {
     const [isLogin, setIsLogin] = useState(true);
@@ -7,10 +9,18 @@ const AuthPage = () => {
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [error, setError] = useState('');
+    const navigate = useNavigate();
+
+    useEffect(() => {
+        // Clear any existing tokens on component mount
+        localStorage.removeItem('token');
+        console.log("AuthPage mounted - cleared any existing auth tokens");
+    }, []);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
+        console.log("Form submitted", { isLogin, username, password });
 
         // Validate inputs
         if (!username || !password) {
@@ -24,52 +34,72 @@ const AuthPage = () => {
         }
 
         try {
-            // This is where you would connect to your backend
-            // Example fetch call to your backend:
-            const response = await fetch(`/api/${isLogin ? 'login' : 'register'}`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ username, password }),
-            });
+            console.log(`Attempting to ${isLogin ? 'login' : 'register'} with:`, { username });
 
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.message || 'Authentication failed');
+            const apiUrl = `http://localhost:8080/api/auth/${isLogin ? 'login' : 'register'}`;
+            const userData = { username, password };
+
+            console.log("Sending request to:", apiUrl, userData);
+            const response = await axios.post(apiUrl, userData);
+            console.log("Response received:", response);
+            console.log("Response data:", response.data);
+
+            if (response.data.success) {
+                // Store user info in localStorage
+                localStorage.setItem('username', response.data.username || username);
+                localStorage.setItem('userId', response.data.userId);
+                // Add a simple token for PrivateRoute authentication
+                localStorage.setItem('token', 'user-authenticated');
+
+                console.log("Stored in localStorage:", {
+                    username: localStorage.getItem('username'),
+                    userId: localStorage.getItem('userId'),
+                    token: localStorage.getItem('token')
+                });
+
+                // Navigate to welcome page
+                navigate('/welcome');
+            } else {
+                console.error("Authentication failed:", response.data.message);
+                setError(response.data.message || 'Authentication failed');
+            }
+        } catch (error) {
+            console.error("Authentication error:", error);
+
+            // Log more details about the error
+            if (error.response) {
+                console.error("Response status:", error.response.status);
+                console.error("Response data:", error.response.data);
             }
 
-            const data = await response.json();
-
-            // Store token in localStorage
-            localStorage.setItem('token', data.token);
-
-            // Redirect to dashboard/main page
-            window.location.href = '/dashboard';
-        } catch (error) {
-            setError(error.message);
+            // Handle API error responses
+            if (error.response && error.response.data) {
+                setError(error.response.data.message || 'Authentication failed');
+            } else {
+                setError('Unable to connect to the server. Please try again later.');
+            }
         }
     };
 
     return (
-        <div className="flex items-center justify-center min-h-screen bg-gray-100">
-            <div className="w-full max-w-md p-8 space-y-8 bg-white rounded-lg shadow-md">
+        <div className="auth-container flex items-center justify-center min-h-screen">
+            <div className="auth-card w-full max-w-md p-8 space-y-8">
                 <div className="text-center">
-                    <h1 className="text-2xl font-bold">Workout Tracker</h1>
-                    <h2 className="mt-2 text-xl">
+                    <h1 className="auth-title">Workout Tracker</h1>
+                    <h2 className="auth-subtitle">
                         {isLogin ? 'Sign In' : 'Create Account'}
                     </h2>
                 </div>
 
                 {error && (
-                    <div className="p-3 text-sm text-red-800 bg-red-100 rounded-md">
+                    <div className="error-message">
                         {error}
                     </div>
                 )}
 
                 <form onSubmit={handleSubmit} className="mt-8 space-y-6">
-                    <div>
-                        <label htmlFor="username" className="block text-sm font-medium text-gray-700">
+                    <div className="form-group">
+                        <label htmlFor="username" className="form-label">
                             Username
                         </label>
                         <input
@@ -79,12 +109,13 @@ const AuthPage = () => {
                             required
                             value={username}
                             onChange={(e) => setUsername(e.target.value)}
-                            className="block w-full px-3 py-2 mt-1 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                            className="form-input"
+                            placeholder="Enter your username"
                         />
                     </div>
 
-                    <div>
-                        <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+                    <div className="form-group">
+                        <label htmlFor="password" className="form-label">
                             Password
                         </label>
                         <input
@@ -94,13 +125,14 @@ const AuthPage = () => {
                             required
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
-                            className="block w-full px-3 py-2 mt-1 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                            className="form-input"
+                            placeholder="Enter your password"
                         />
                     </div>
 
                     {!isLogin && (
-                        <div>
-                            <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">
+                        <div className="form-group">
+                            <label htmlFor="confirmPassword" className="form-label">
                                 Confirm Password
                             </label>
                             <input
@@ -110,7 +142,8 @@ const AuthPage = () => {
                                 required
                                 value={confirmPassword}
                                 onChange={(e) => setConfirmPassword(e.target.value)}
-                                className="block w-full px-3 py-2 mt-1 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                                className="form-input"
+                                placeholder="Confirm your password"
                             />
                         </div>
                     )}
@@ -118,7 +151,7 @@ const AuthPage = () => {
                     <div>
                         <button
                             type="submit"
-                            className="w-full px-4 py-2 text-white bg-indigo-600 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                            className="btn-primary"
                         >
                             {isLogin ? 'Sign In' : 'Create Account'}
                         </button>
@@ -128,8 +161,11 @@ const AuthPage = () => {
                 <div className="text-center mt-4">
                     <button
                         type="button"
-                        onClick={() => setIsLogin(!isLogin)}
-                        className="text-sm text-indigo-600 hover:text-indigo-500"
+                        onClick={() => {
+                            setIsLogin(!isLogin);
+                            setError('');
+                        }}
+                        className="btn-link"
                     >
                         {isLogin ? 'Need an account? Sign up' : 'Already have an account? Sign in'}
                     </button>
